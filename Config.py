@@ -1,6 +1,6 @@
 import json
 import os
-
+import boto3
 from Core.Define import EXCHANGE
 from Core.Tool import check_config_empty_by_error
 from Define import exchange_file_path
@@ -22,28 +22,15 @@ def _load_exchange_config_from_secrets():
     - AWS_SECRET_NAME: Name/ARN of the secret to fetch
     - AWS_REGION: Optional AWS region (if omitted, boto3 default resolution is used)
     """
-    secret_name = os.getenv('AWS_SECRET_NAME')
-    if not secret_name:
-        return None
-    region = os.getenv('AWS_REGION')
     try:
-        try:
-            import boto3  # Lazy import so projects not using secrets can still run without boto3
-        except Exception as e:
-            print(f"boto3 not available: {e}. Fallback to exchange.json")
-            return None
-
-        client_kwargs = {}
-        if region:
-            client_kwargs['region_name'] = region
-        client = boto3.client('secretsmanager', **client_kwargs)
-        resp = client.get_secret_value(SecretId=secret_name)
+        client = boto3.client('secretsmanager',region_name="ap-southeast-1")
+        resp = client.get_secret_value(SecretId='exchange_key')
         secret_str = resp.get('SecretString')
         if not secret_str:
             print("AWS Secrets Manager returned no SecretString; fallback to exchange.json")
             return None
         data = json.loads(secret_str)
-        print(f"Loaded exchange config from AWS Secrets Manager: {secret_name}")
+        print(f"Loaded exchange config from AWS Secrets Manager: exchange_key")
         return data
     except Exception as e:
         print(f"Failed to load secrets from AWS Secrets Manager: {e}. Fallback to exchange.json")
