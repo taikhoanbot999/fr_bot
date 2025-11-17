@@ -1,16 +1,9 @@
 import json
-import os
 import sys
 
 import boto3
 from Core.Define import EXCHANGE
 from Core.Tool import check_config_empty_by_error
-
-binance_api_key, binance_api_secret = '', ''
-bitget_api_key, bitget_api_secret, bitget_password = '', '', ''
-
-bitget_sub_api_key, bitget_sub_api_secret, bitget_sub_password = '', '', ''
-gate_api_key, gate_api_secret = '', ''
 
 
 def _load_exchange_config_from_secrets():
@@ -24,7 +17,7 @@ def _load_exchange_config_from_secrets():
     - AWS_REGION: Optional AWS region (if omitted, boto3 default resolution is used)
     """
     try:
-        client = boto3.client('secretsmanager',region_name="ap-southeast-1")
+        client = boto3.client('secretsmanager', region_name="ap-southeast-1")
         resp = client.get_secret_value(SecretId='exchange_key')
         secret_str = resp.get('SecretString')
         if not secret_str:
@@ -38,39 +31,64 @@ def _load_exchange_config_from_secrets():
         return None
 
 
-def load_config(exchange1, exchange2):
+def get_credentials(exchange1: EXCHANGE, exchange2: EXCHANGE):
     """
-    Load configuration for the specified exchanges.
+    Load credentials for the specified exchanges and return them without storing globally.
+
+    Returns a dict structure:
+    {
+      'binance': {'api_key': str, 'api_secret': str},
+      'bitget': {'api_key': str, 'api_secret': str, 'password': str},
+      'bitget_sub': {'api_key': str, 'api_secret': str, 'password': str},
+      'gate': {'api_key': str, 'api_secret': str}
+    }
+
+    Only the requested exchanges (exchange1/exchange2) are validated for emptiness.
+    Others are returned as empty strings to preserve previous behavior.
     """
-    global binance_api_key, binance_api_secret
-    global bitget_api_key, bitget_api_secret, bitget_password
-    global bitget_sub_api_key, bitget_sub_api_secret, bitget_sub_password
-    global gate_api_key, gate_api_secret
     print(f"Loading configuration for exchanges: {exchange1}, {exchange2}")
 
-    # First try AWS Secrets Manager, then fallback to local file
     data = _load_exchange_config_from_secrets()
     if data is None:
         sys.exit(1)
 
-    if exchange1 == EXCHANGE.BITGET or exchange2 == EXCHANGE.BITGET or exchange1 == EXCHANGE.BITGET_SUB or exchange2 == EXCHANGE.BITGET_SUB:
-        bitget_api_key = data.get('bitget', {}).get('api_key', '')
-        bitget_api_secret = data.get('bitget', {}).get('api_secret', '')
-        bitget_password = data.get('bitget', {}).get('password', '')
-        check_config_empty_by_error([bitget_api_key, bitget_api_secret, bitget_password])
+    # Prepare default empty credentials
+    creds = {
+        'binance': {'api_key': '', 'api_secret': ''},
+        'bitget': {'api_key': '', 'api_secret': '', 'password': ''},
+        'bitget_sub': {'api_key': '', 'api_secret': '', 'password': ''},
+        'gate': {'api_key': '', 'api_secret': ''},
+    }
 
-    if exchange1 == EXCHANGE.BITGET_SUB or exchange2 == EXCHANGE.BITGET_SUB:
-        bitget_sub_api_key = data.get('bitget_sub', {}).get('api_key', '')
-        bitget_sub_api_secret = data.get('bitget_sub', {}).get('api_secret', '')
-        bitget_sub_password = data.get('bitget_sub', {}).get('password', '')
-        check_config_empty_by_error([bitget_sub_api_key, bitget_sub_api_secret, bitget_sub_password])
+    # Helper to fill and validate
+    def _fill_and_validate(name: str, required_keys):
+        exchange_data = data.get(name, {})
+        for k in creds[name].keys():
+            creds[name][k] = exchange_data.get(k, '')
+        if name.upper() == 'BINANCE':
+            ex_enum = EXCHANGE.BINANCE
+        elif name.upper() == 'BITGET':
+            ex_enum = EXCHANGE.BITGET
+        elif name.upper() == 'BITGET_SUB':
+            ex_enum = EXCHANGE.BITGET_SUB
+        elif name.upper() == 'GATE':
+            ex_enum = EXCHANGE.GATE
+        else:
+            ex_enum = None
+        if ex_enum is not None and (exchange1 == ex_enum or exchange2 == ex_enum):
+            check_config_empty_by_error([creds[name].get(k, '') for k in required_keys])
 
-    if exchange1 == EXCHANGE.BINANCE or exchange2 == EXCHANGE.BINANCE:
-        binance_api_key = data.get('binance', {}).get('api_key', '')
-        binance_api_secret = data.get('binance', {}).get('api_secret', '')
-        check_config_empty_by_error([binance_api_key, binance_api_secret])
+    _fill_and_validate('bitget', ['api_key', 'api_secret', 'password'])
+    _fill_and_validate('bitget_sub', ['api_key', 'api_secret', 'password'])
+    _fill_and_validate('binance', ['api_key', 'api_secret'])
+    _fill_and_validate('gate', ['api_key', 'api_secret'])
 
-    if exchange1 == EXCHANGE.GATE or exchange2 == EXCHANGE.GATE:
-        gate_api_key = data.get('gate', {}).get('api_key', '')
-        gate_api_secret = data.get('gate', {}).get('api_secret', '')
-        check_config_empty_by_error([gate_api_key, gate_api_secret])
+    return creds
+
+
+# Backwards-compat wrapper if other modules still import load_config
+# It returns the same dict as get_credentials for compatibility.
+# Prefer calling get_credentials directly.
+
+def load_config(exchange1: EXCHANGE, exchange2: EXCHANGE):
+    return get_credentials(exchange1, exchange2)
