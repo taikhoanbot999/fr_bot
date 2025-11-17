@@ -1,9 +1,10 @@
 import json
 import os
+import sys
+
 import boto3
 from Core.Define import EXCHANGE
 from Core.Tool import check_config_empty_by_error
-from Define import exchange_file_path
 
 binance_api_key, binance_api_secret = '', ''
 bitget_api_key, bitget_api_secret, bitget_password = '', '', ''
@@ -50,8 +51,7 @@ def load_config(exchange1, exchange2):
     # First try AWS Secrets Manager, then fallback to local file
     data = _load_exchange_config_from_secrets()
     if data is None:
-        with open(exchange_file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        sys.exit(1)
 
     if exchange1 == EXCHANGE.BITGET or exchange2 == EXCHANGE.BITGET or exchange1 == EXCHANGE.BITGET_SUB or exchange2 == EXCHANGE.BITGET_SUB:
         bitget_api_key = data.get('bitget', {}).get('api_key', '')

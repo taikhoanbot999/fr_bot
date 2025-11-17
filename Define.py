@@ -48,7 +48,6 @@ tp_sl_log_path = os.path.join(log_path, "tp_sl.txt")
 
 transfer_done_file = os.path.join(log_path, "transfer_done.txt")
 
-exchange_file_path = os.path.join(root_path, "code/_settings", ini_path, "exchange.json")
 transfer_info_path = os.path.join(root_path, "code/_settings", ini_path, "transfer.json")
 balance_info_path = os.path.join(root_path, "code/_settings", ini_path,  "balance.json")
 tp_sl_info_path = os.path.join(root_path, "code/_settings", ini_path, "tp_sl.json")
