@@ -3,7 +3,7 @@ set -euo pipefail
 
 # FR Bot install script (systemd FastAPI server over HTTPS)
 # - Server: uvicorn via systemd (APP_MODULE=Server.App:app)
-# - HTTPS only: requires SSL_CERTFILE and SSL_KEYFILE to exist (default: /etc/ssl/frbot)
+# - HTTP only
 
 # ---------------- Config ----------------
 APP_ROOT="${APP_ROOT:-/home/ubuntu/fr_bot}"
@@ -16,9 +16,6 @@ APP_MODULE="${APP_MODULE:-Server.App:app}"
 APP_PORT="${APP_PORT:-8000}"
 SYSTEMD_UNIT="${SYSTEMD_UNIT:-frbot-server.service}"
 
-# HTTPS cert/key locations (self-signed or CA). Must exist.
-SSL_CERTFILE="${SSL_CERTFILE:-/etc/ssl/frbot/cert.pem}"
-SSL_KEYFILE="${SSL_KEYFILE:-/etc/ssl/frbot/key.pem}"
 
 # Microservices (optional; skip by default to keep this script focused on the server)
 SKIP_MICROSERVICES="${SKIP_MICROSERVICES:-1}"
@@ -139,15 +136,6 @@ install_systemd_server() {
   echo "[INFO] Installing systemd unit: $SYSTEMD_UNIT"
   UNIT_PATH="/etc/systemd/system/$SYSTEMD_UNIT"
 
-  # Enforce HTTPS: cert and key must exist
-  if [[ ! -f "$SSL_CERTFILE" || ! -f "$SSL_KEYFILE" ]]; then
-    echo "[ERROR] SSL cert/key not found. Expected:"
-    echo "  SSL_CERTFILE=$SSL_CERTFILE"
-    echo "  SSL_KEYFILE=$SSL_KEYFILE"
-    echo "Hint: run generate_ssl.sh (in repo) to create self-signed certs, or set env to your CA cert paths."
-    exit 1
-  fi
-
   sudo bash -c "cat > '$UNIT_PATH'" <<EOF
 [Unit]
 Description=FR Bot FastAPI Server (uvicorn, HTTPS)
@@ -163,9 +151,7 @@ Environment=APP_MODULE=$APP_MODULE
 Environment=HOST_SETTINGS_DIR=$HOST_SETTINGS_DIR
 Environment=LOG_DIR=$LOG_DIR
 Environment=DATA_DIR=$DATA_DIR
-Environment=UVICORN_SSL_CERTFILE=$SSL_CERTFILE
-Environment=UVICORN_SSL_KEYFILE=$SSL_KEYFILE
-ExecStart=$VENV_DIR/bin/uvicorn ${APP_MODULE} --host 0.0.0.0 --port $APP_PORT --log-level info
+ExecStart=$VENV_DIR/bin/uvicorn ${APP_MODULE} --host 127.0.0.1 --port $APP_PORT --log-level info
 Restart=always
 RestartSec=3
 NoNewPrivileges=true

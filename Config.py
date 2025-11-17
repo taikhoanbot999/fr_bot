@@ -1,4 +1,5 @@
 import json
+import os
 
 from Core.Define import EXCHANGE
 from Core.Tool import check_config_empty_by_error
@@ -11,6 +12,44 @@ bitget_sub_api_key, bitget_sub_api_secret, bitget_sub_password = '', '', ''
 gate_api_key, gate_api_secret = '', ''
 
 
+def _load_exchange_config_from_secrets():
+    """
+    Try to load exchange credentials from AWS Secrets Manager.
+    Expected secret payload is a JSON string compatible with legacy exchange.json structure,
+    e.g. { "bitget": {"api_key": "...", "api_secret": "...", "password": "..."}, "gate": { ... } }
+
+    Configuration:
+    - AWS_SECRET_NAME: Name/ARN of the secret to fetch
+    - AWS_REGION: Optional AWS region (if omitted, boto3 default resolution is used)
+    """
+    secret_name = os.getenv('AWS_SECRET_NAME')
+    if not secret_name:
+        return None
+    region = os.getenv('AWS_REGION')
+    try:
+        try:
+            import boto3  # Lazy import so projects not using secrets can still run without boto3
+        except Exception as e:
+            print(f"boto3 not available: {e}. Fallback to exchange.json")
+            return None
+
+        client_kwargs = {}
+        if region:
+            client_kwargs['region_name'] = region
+        client = boto3.client('secretsmanager', **client_kwargs)
+        resp = client.get_secret_value(SecretId=secret_name)
+        secret_str = resp.get('SecretString')
+        if not secret_str:
+            print("AWS Secrets Manager returned no SecretString; fallback to exchange.json")
+            return None
+        data = json.loads(secret_str)
+        print(f"Loaded exchange config from AWS Secrets Manager: {secret_name}")
+        return data
+    except Exception as e:
+        print(f"Failed to load secrets from AWS Secrets Manager: {e}. Fallback to exchange.json")
+        return None
+
+
 def load_config(exchange1, exchange2):
     """
     Load configuration for the specified exchanges.
@@ -20,8 +59,12 @@ def load_config(exchange1, exchange2):
     global bitget_sub_api_key, bitget_sub_api_secret, bitget_sub_password
     global gate_api_key, gate_api_secret
     print(f"Loading configuration for exchanges: {exchange1}, {exchange2}")
-    with open(exchange_file_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+
+    # First try AWS Secrets Manager, then fallback to local file
+    data = _load_exchange_config_from_secrets()
+    if data is None:
+        with open(exchange_file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
 
     if exchange1 == EXCHANGE.BITGET or exchange2 == EXCHANGE.BITGET or exchange1 == EXCHANGE.BITGET_SUB or exchange2 == EXCHANGE.BITGET_SUB:
         bitget_api_key = data.get('bitget', {}).get('api_key', '')
