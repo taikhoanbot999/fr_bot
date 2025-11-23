@@ -13,7 +13,7 @@ import Define
 from Core.Tool import step, clear_console
 from Core.Define import EXCHANGE, convert_exchange_to_name
 from Core.AliveServiceClient import AliveServiceClient
-from Define import asset_log_path, transfer_done_file, SERVICE_NAME, root_path, shared_log_path
+from Define import transfer_done_file, SERVICE_NAME, root_path
 from Core.Logger import log_info, LogService
 
 start_time = time.time()
@@ -41,9 +41,11 @@ class AssetProcess:
             raise Exception("Transfer is already in progress, please wait until it completes.")
         self.in_transfer = True  # Đánh dấu là đang trong quá trình chuyển tiền
 
-        # Xoá file transfer_done_file nếu tồn tại và tạo lại file rỗng
+        # Ghi file transfer_done_file trạng thái WAIT + amount để API đọc được số tiền đang chuyển
         with open(transfer_done_file, 'w', encoding='utf-8') as f:
             f.write('WAIT\n')
+            f.write(f'{amount}\n')
+            f.write(f'{from_exchange}->{to_exchange}\n')  # thông tin nguồn -> đích (tham khảo)
 
         asset_control_log(f"Transfer {amount} USDT from {from_exchange} to {to_exchange}")
         # script_path = os.path.abspath("AssetControl/Transfer.py")

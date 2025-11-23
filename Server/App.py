@@ -108,14 +108,23 @@ class AssetRecord(BaseModel):
     side2: float
     total: float
 
+# Model mới cho current asset (có cộng thêm lượng đang transfer)
+class AssetCurrentRecord(BaseModel):
+    timestamp: str
+    side1: float
+    side2: float
+    total: float
+    transfer_inflight: float
+    total_with_transfer: float
+
 @app.get("/bot1api/asset-report", response_model=List[AssetRecord])
 def get_asset_report(limit: Optional[int] = None):
     data = asset_reporter.get_report(limit=limit)
-    # FastAPI will validate against model
+    # FastAPI sẽ validate theo model
     return data
 
-# New: get current live balances
-@app.get("/bot1api/asset-report/current", response_model=AssetRecord)
+# Updated: get current live balances với transfer_inflight
+@app.get("/bot1api/asset-report/current", response_model=AssetCurrentRecord)
 def get_asset_current():
     data = asset_reporter.get_current()
     return data
