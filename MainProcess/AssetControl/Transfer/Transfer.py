@@ -1,11 +1,12 @@
 import os.path
 import sys
 import time
+import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 from Core.Exchange.Exchange import ExchangeManager
 from TransferConfig import TransferConfig
 from Core.Define import EXCHANGE
-from Define import transfer_done_file, exchange2, exchange1
+from Define import transfer_done_file, exchange2, exchange1, transfer_status_json_file
 from Core.Tool import try_this
 from Core.Logger import log_info, LogService, LogTarget
 
@@ -185,18 +186,35 @@ def transfer_tunel(from_exchange, to_exchange, amount):
         # Transfer from spot to swap
         time.sleep(30)
         try_this(transfer_spot_to_swap, params={'exchange': to_exchange, 'amount': amount}, log_func=tunel_log, retries=5, delay=5)
-        write_transfer_status(True)
+        write_transfer_status(True, amount=amount, from_exchange=from_exchange.name.lower(), to_exchange=to_exchange.name.lower())
     except Exception as e:
         tunel_log(f"Transfer failed, {e}")
-        write_transfer_status(False)
+        write_transfer_status(False, amount=amount, from_exchange=from_exchange.name.lower(), to_exchange=to_exchange.name.lower())
         raise
 
-def write_transfer_status(bOk):
+def write_transfer_status(bOk, amount=None, from_exchange=None, to_exchange=None):
+    # Ghi legacy file text
     with open(transfer_done_file, 'w+', encoding='utf-8') as f:
         if bOk:
             f.write('OK\n')
         else:
             f.write('ERROR\n')
+    # Ghi file JSON trạng thái (atomic) để container khác đọc
+    try:
+        tmp_path = transfer_status_json_file + '.tmp'
+        payload = {
+            'status': 'OK' if bOk else 'ERROR',
+            'amount': float(amount) if amount is not None else None,
+            'from': from_exchange,
+            'to': to_exchange,
+            'finished_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+            'duration_sec': round(time.time() - start_time, 2)
+        }
+        with open(tmp_path, 'w', encoding='utf-8') as jf:
+            json.dump(payload, jf, ensure_ascii=False)
+        os.replace(tmp_path, transfer_status_json_file)
+    except Exception as e:
+        tunel_log(f'Cannot write transfer_status.json at done stage: {e}')
 
 if __name__ == '__main__':
 

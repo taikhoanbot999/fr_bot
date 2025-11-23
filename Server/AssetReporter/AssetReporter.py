@@ -9,7 +9,7 @@ from Core.Exchange.Exchange import ExchangeManager
 from Core.Tracker.BitgetTracker import BitgetTracker
 from Core.Tracker.GateIOTracker import GateIOTracker
 from Core.Define import EXCHANGE
-from Define import exchange1, exchange2, log_path, transfer_done_file
+from Define import exchange1, exchange2, log_path, transfer_done_file, transfer_status_json_file
 
 
 class AssetReporter:
@@ -114,7 +114,23 @@ class AssetReporter:
         return {"side1": side1, "side2": side2, "total": side1 + side2}
 
     def _get_transfer_inflight(self) -> float:
-        """Đọc file transfer_done.txt để lấy amount đang chuyển (chỉ khi trạng thái WAIT)."""
+        """Đọc file trạng thái transfer để lấy amount đang chuyển (ưu tiên JSON, fallback legacy)."""
+        # Thử JSON trước
+        try:
+            if os.path.exists(transfer_status_json_file):
+                with open(transfer_status_json_file, 'r', encoding='utf-8') as jf:
+                    data = json.load(jf)
+                    if data.get('status') == 'WAIT':
+                        amt = data.get('amount')
+                        try:
+                            return float(amt)
+                        except Exception:
+                            return 0.0
+                    # Nếu đã OK/ERROR thì không còn inflight
+                    return 0.0
+        except Exception:
+            pass
+        # Fallback legacy text file
         try:
             if not os.path.exists(transfer_done_file):
                 return 0.0
@@ -126,6 +142,48 @@ class AssetReporter:
                 return self._safe_float(amount_line)
         except Exception:
             return 0.0
+
+    def _get_transfer_status_detail(self) -> Dict[str, Any]:
+        """Trả về toàn bộ chi tiết trạng thái transfer (JSON) nếu có, nếu không trả về tối giản."""
+        try:
+            if os.path.exists(transfer_status_json_file):
+                with open(transfer_status_json_file, 'r', encoding='utf-8') as jf:
+                    data = json.load(jf)
+                    # Đảm bảo các key chuẩn hoá
+                    return {
+                        'status': data.get('status'),
+                        'amount': data.get('amount'),
+                        'from': data.get('from'),
+                        'to': data.get('to'),
+                        'updated_at': data.get('updated_at'),
+                        'finished_at': data.get('finished_at'),
+                        'duration_sec': data.get('duration_sec'),
+                    }
+        except Exception:
+            pass
+        # Fallback legacy
+        try:
+            if os.path.exists(transfer_done_file):
+                with open(transfer_done_file, 'r', encoding='utf-8') as f:
+                    status_line = f.readline().strip() or None
+                    if status_line == 'WAIT':
+                        amount_line = (f.readline().strip() or None)
+                        route_line = (f.readline().strip() or None)
+                        frm, to = (route_line.split('->') + [None, None])[:2] if route_line and '->' in route_line else (None, None)
+                        return {
+                            'status': 'WAIT',
+                            'amount': self._safe_float(amount_line) if amount_line else None,
+                            'from': frm,
+                            'to': to,
+                            'updated_at': None,
+                            'finished_at': None,
+                            'duration_sec': None,
+                        }
+                    else:
+                        return {'status': status_line}
+        except Exception:
+            pass
+        return {'status': None}
 
     def take_snapshot(self) -> Dict[str, Any]:
         ts = datetime.now().isoformat(timespec='seconds')
@@ -180,11 +238,13 @@ class AssetReporter:
         balances = self._get_balances()
         transfer_amount = self._get_transfer_inflight()
         total_with_transfer = balances['total'] + transfer_amount
+        transfer_status = self._get_transfer_status_detail()
         return {
-            "timestamp": ts,
-            "side1": balances["side1"],
-            "side2": balances["side2"],
-            "total": balances["total"],
-            "transfer_inflight": transfer_amount,
-            "total_with_transfer": total_with_transfer,
+            'timestamp': ts,
+            'side1': balances['side1'],
+            'side2': balances['side2'],
+            'total': balances['total'],
+            'transfer_inflight': transfer_amount,
+            'total_with_transfer': total_with_transfer,
+            'transfer_status': transfer_status,
         }

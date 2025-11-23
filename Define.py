@@ -47,6 +47,8 @@ adl_log_path = os.path.join(log_path, "adl.txt")
 tp_sl_log_path = os.path.join(log_path, "tp_sl.txt")
 
 transfer_done_file = os.path.join(log_path, "transfer_done.txt")
+# File JSON trạng thái transfer mới (atomic + dễ parse giữa container)
+transfer_status_json_file = os.path.join(log_path, "transfer_status.json")
 
 transfer_info_path = os.path.join(root_path, "code/_settings", ini_path, "transfer.json")
 balance_info_path = os.path.join(root_path, "code/_settings", ini_path,  "balance.json")

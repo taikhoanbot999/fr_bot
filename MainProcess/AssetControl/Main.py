@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import time
+import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
@@ -13,7 +14,7 @@ import Define
 from Core.Tool import step, clear_console
 from Core.Define import EXCHANGE, convert_exchange_to_name
 from Core.AliveServiceClient import AliveServiceClient
-from Define import transfer_done_file, SERVICE_NAME, root_path
+from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file
 from Core.Logger import log_info, LogService
 
 start_time = time.time()
@@ -45,16 +46,31 @@ class AssetProcess:
         with open(transfer_done_file, 'w', encoding='utf-8') as f:
             f.write('WAIT\n')
             f.write(f'{amount}\n')
-            f.write(f'{from_exchange}->{to_exchange}\n')  # thông tin nguồn -> đích (tham khảo)
+            f.write(f'{from_exchange}->{to_exchange}\n')
+
+        # Ghi thêm JSON trạng thái để server ở container khác đọc được (atomic)
+        try:
+            tmp_path = transfer_status_json_file + '.tmp'
+            payload = {
+                'status': 'WAIT',
+                'amount': float(amount),
+                'from': from_exchange,
+                'to': to_exchange,
+                'updated_at': time.strftime('%Y-%m-%dT%H:%M:%S')
+            }
+            with open(tmp_path, 'w', encoding='utf-8') as jf:
+                json.dump(payload, jf, ensure_ascii=False)
+            os.replace(tmp_path, transfer_status_json_file)
+        except Exception as e:
+            asset_control_log(f'Cannot write transfer_status.json: {e}')
 
         asset_control_log(f"Transfer {amount} USDT from {from_exchange} to {to_exchange}")
-        # script_path = os.path.abspath("AssetControl/Transfer.py")
         script_path = f"{root_path}/code/MainProcess/AssetControl/Transfer/Transfer.py"
         venv_python = sys.executable
         self.process = subprocess.Popen(
             [venv_python, script_path, from_exchange, to_exchange, str(amount)],
-            stdout=subprocess.PIPE,  # Không kế thừa stdout
-            stderr=subprocess.PIPE,  # Không kế thừa stderr
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
 
 

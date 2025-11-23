@@ -116,6 +116,7 @@ class AssetCurrentRecord(BaseModel):
     total: float
     transfer_inflight: float
     total_with_transfer: float
+    transfer_status: dict | None  # đơn giản hoá, có thể khai báo pydantic model chi tiết nếu cần
 
 @app.get("/bot1api/asset-report", response_model=List[AssetRecord])
 def get_asset_report(limit: Optional[int] = None):
