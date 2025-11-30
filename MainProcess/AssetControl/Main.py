@@ -6,16 +6,14 @@ import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from Core.Exchange.Exchange import ExchangeManager
-from Core.Tracker.BitgetTracker import BitgetTracker
-from Core.Tracker.GateIOTracker import GateIOTracker
-from MainProcess.AssetControl.BalanceConfig import max_diff_rate
-import Define
+from fr_ccxt import CCXTWrapper
+from Core.secret import get_secret
 from Core.Tool import step, clear_console
-from Core.Define import EXCHANGE, convert_exchange_to_name
-from Core.AliveServiceClient import AliveServiceClient
-from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file
+from Core.Define import convert_exchange_to_name
+from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file, exchange1, exchange2
 from Core.Logger import log_info, LogService
+from MainProcess.AssetControl.BalanceConfig import max_diff_rate
+from Core.Tracker.Tracker import AccountBalance
 
 start_time = time.time()
 
@@ -25,12 +23,11 @@ def asset_control_log(message):
 
 
 class AssetProcess:
-
     MIN_ASSET_DIFF = max_diff_rate
 
-    def __init__(self, binance_tracker, bitget_tracker):
-        self.binance_tracker = binance_tracker
+    def __init__(self, bitget_tracker, gate_tracker):
         self.bitget_tracker = bitget_tracker
+        self.gate_tracker = gate_tracker
         self.in_transfer = False  # Biến để kiểm tra xem có đang trong quá trình chuyển tiền hay không
         self.asset = {}
         self.process = None  # Biến để lưu trữ tiến trình chuyển tiền
@@ -92,27 +89,39 @@ class AssetProcess:
             else:
                 return False
 
-    def tick(self):
-        binance_asset_info = self.binance_tracker.get_cross_margin_account_info()
-        bitget_asset_info = self.bitget_tracker.get_cross_margin_account_info()
+    def _bitget_account_balance(self):
+        resp = self.bitget_tracker.get_future_account_balance()
+        usdt = resp["balances"].get("USDT", {"total": 0.0})
+        total = float(usdt.get("total", 0.0))
+        return AccountBalance(total, total, total, usdt.get("available", 0.0), 0.0)
 
-        total = binance_asset_info.total_margin_balance + bitget_asset_info.total_margin_balance
-        min_balance = total/2 - total* self.MIN_ASSET_DIFF
+    def _gate_account_balance(self):
+        resp = self.gate_tracker.get_future_account_balance()
+        usdt = resp["balances"].get("USDT", {"total": 0.0})
+        total = float(usdt.get("total", 0.0))
+        return AccountBalance(total, total, total, usdt.get("available", 0.0), 0.0)
+
+    def tick(self):
+        bitget_asset_info = self._bitget_account_balance()
+        gate_asset_info = self._gate_account_balance()
+
+        total = bitget_asset_info.total_margin_balance + gate_asset_info.total_margin_balance
+        min_balance = total / 2 - total * self.MIN_ASSET_DIFF
         self.asset = {
-            'binance': binance_asset_info,
-            'bitget': bitget_asset_info,
+            convert_exchange_to_name(exchange1): bitget_asset_info,
+            convert_exchange_to_name(exchange2): gate_asset_info,
             'estimated_min_balance': min_balance,
         }
 
         if not self.in_transfer:
             # Nếu chênh lệch giữa 2 sàn quá 20% tổng asset thì chuyển lượng chênh lệch (làm tròn đến 10 USDT) từ sàn ít hơn sang sàn nhiều hơn
-            total_asset = binance_asset_info.total_margin_balance + bitget_asset_info.total_margin_balance
-            diff = abs(binance_asset_info.total_margin_balance - bitget_asset_info.total_margin_balance)
+            total_asset = bitget_asset_info.total_margin_balance + gate_asset_info.total_margin_balance
+            diff = abs(bitget_asset_info.total_margin_balance - gate_asset_info.total_margin_balance)
             if total_asset > 0 and diff / total_asset > self.MIN_ASSET_DIFF:
                 move_amount = int(diff/2 // 10) * 10  # Làm tròn xuống đến 10 USDT
                 if move_amount == 0:
                     raise ValueError("The difference is too small to transfer, please check your balances.")
-                if binance_asset_info.total_margin_balance > bitget_asset_info.total_margin_balance:
+                if bitget_asset_info.total_margin_balance > gate_asset_info.total_margin_balance:
 
                     self.transfer(convert_exchange_to_name(exchange1), convert_exchange_to_name(exchange2), move_amount)
                 else:
@@ -131,32 +140,28 @@ class AssetProcess:
 if __name__ == '__main__':
 
     clear_console()
-
-    exchange1 = Define.exchange1
-    exchange2 = Define.exchange2
-    exchange_manager = ExchangeManager(exchange1, exchange2)
     asset_control_log("Starting asset balance process...")
 
-    exchange1_tracker = None
-    if exchange1 == EXCHANGE.BITGET:
-        exchange1_tracker = BitgetTracker(exchange_manager.bitget_exchange)
-    elif exchange1 == EXCHANGE.GATE:
-        exchange1_tracker = GateIOTracker(exchange_manager.gate_exchange)
+    api_info = get_secret()
+    bitget_info = api_info['bitget']
+    gate_info = api_info['gate']
 
-    exchange2_tracker = None
-    if exchange2 == EXCHANGE.BITGET:
-        exchange2_tracker = BitgetTracker(exchange_manager.bitget_exchange)
-    elif exchange2 == EXCHANGE.GATE:
-        exchange2_tracker = GateIOTracker(exchange_manager.gate_exchange)
+    bitget_wrapper = CCXTWrapper(
+        'bitget',
+        apiKey=bitget_info['api_key'],
+        secret=bitget_info['api_secret'],
+        password=bitget_info['password'],
+        options={'defaultType': 'swap'}
+    )
 
+    gate_wrapper = CCXTWrapper(
+        'gate',
+        apiKey=gate_info['api_key'],
+        secret=gate_info['api_secret'],
+        options={'defaultType': 'swap'}
+    )
 
-    if exchange1_tracker is None or exchange2_tracker is None:
-        asset_control_log(f"Invalid exchanges: {exchange1}, {exchange2}. Must be one of ['bitget', 'gate']")
-        sys.exit(1)
-
-    asset_process = AssetProcess(exchange1_tracker, exchange2_tracker)
-
-    alive_service_client = AliveServiceClient(SERVICE_NAME.ASSET_CONTROL.value)
+    asset_process = AssetProcess(bitget_wrapper, gate_wrapper)
 
     try:
 
@@ -172,8 +177,8 @@ if __name__ == '__main__':
             status = asset_process.get_status()
 
 
-            step_string1 = f"Binance: {asset['binance'].total_margin_balance} USDT"
-            step_string2 = f"Bitget: {asset['bitget'].total_margin_balance} USDT"
+            step_string1 = f"Bitget: {asset['bitget'].total_margin_balance} USDT"
+            step_string2 = f"Gate: {asset['gate'].total_margin_balance} USDT"
             step_string3 = f"Estimated Min Balance: {asset['estimated_min_balance']} USDT"
             step_strings = [step_string1, step_string2, step_string3]
             if status :

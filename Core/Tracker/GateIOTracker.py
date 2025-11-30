@@ -1,10 +1,10 @@
-import time
-
+from Core.Define import EXCHANGE
+from Core.Tracker.Tracker import CcxtTracker
 from Core.Define import PositionSide, Position, EXCHANGE
 from Core.Tracker.Tracker import AccountBalance
+class GateIOTracker(CcxtTracker):
 
-
-class GateIOTracker:
+        super().__init__(exchange_client=exchange, exchange=EXCHANGE.GATE)
     def __init__(self, exchange):
        self.client = exchange
 
