@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from Server.ServiceManager.MicroserviceManager import MicroserviceManager
 from Core.Define import convert_exchange_to_name
-from Core.Exchange.Exchange import ExchangeManager
 
 class AppCore:
     def __init__(self):
@@ -57,4 +56,3 @@ class AppCore:
             base = symbol[:-4]
             return f"{base}/USDT:USDT"
         return symbol
-

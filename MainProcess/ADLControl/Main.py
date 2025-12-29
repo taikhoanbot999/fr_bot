@@ -5,24 +5,25 @@ import sys
 import time
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from Core.Exchange.Exchange import ExchangeManager
+import ccxt
+import ccxt.pro
 from Core.Tool import try_this
 from Define import exchange1, exchange2, root_path
 from MainProcess.ADLControl.Log import adl_log
 from MainProcess.ADLControl.Order import close_position_gate, close_position_bitget, fetch_position_bitget, \
     fetch_position_gate
+import Config
+from Core.Define import EXCHANGE
 
 
 class ADLController:
-    def __init__(self, exchange_manager):
+    def __init__(self, bitget_exchange, gate_exchange, bitget_pro, gate_pro):
 
-        self.exchangeManager = exchange_manager
+        self.bitget_pro = bitget_pro
+        self.gate_pro = gate_pro
 
-        self.bitget_pro = exchange_manager.bitget_pro
-        self.gate_pro = exchange_manager.gate_pro
-
-        self.bitget_exchange = exchange_manager.bitget_exchange
-        self.gate_exchange = exchange_manager.gate_exchange
+        self.bitget_exchange = bitget_exchange
+        self.gate_exchange = gate_exchange
 
         self.lock = asyncio.Lock()
         self.positions = {}
@@ -145,6 +146,48 @@ class ADLController:
         )
 
 if __name__ == '__main__':
-    exchange_manager = ExchangeManager(exchange1, exchange2)
-    adl_controller = ADLController(exchange_manager)
+    # Khởi tạo trực tiếp các instance ccxt/ccxt.pro thay vì dùng ExchangeManager
+    creds = Config.get_credentials(exchange1, exchange2)
+
+    # REST exchanges
+    bitget_creds = creds['bitget']
+    gate_creds = creds['gate']
+
+    bitget_exchange = ccxt.bitget({
+        'apiKey': bitget_creds['api_key'],
+        'secret': bitget_creds['api_secret'],
+        'password': bitget_creds['password'],
+        'enableRateLimit': True,
+    })
+    bitget_exchange.options['defaultType'] = 'swap'
+
+    gate_exchange = ccxt.gateio({
+        'apiKey': gate_creds['api_key'],
+        'secret': gate_creds['api_secret'],
+        'enableRateLimit': True,
+    })
+    gate_exchange.options['defaultType'] = 'swap'
+
+    # PRO exchanges (WebSocket)
+    bitget_pro = ccxt.pro.bitget({
+        'apiKey': bitget_creds['api_key'],
+        'secret': bitget_creds['api_secret'],
+        'password': bitget_creds['password'],
+        'options': {'defaultType': 'swap'}
+    })
+
+    gate_pro = ccxt.pro.gateio({
+        'apiKey': gate_creds['api_key'],
+        'secret': gate_creds['api_secret'],
+        'uid': "22397301",  # giữ nguyên uid như ExchangeManager cũ
+        'enableRateLimit': True,
+        'options': {'defaultType': 'swap'}
+    })
+
+    adl_controller = ADLController(
+        bitget_exchange=bitget_exchange,
+        gate_exchange=gate_exchange,
+        bitget_pro=bitget_pro,
+        gate_pro=gate_pro,
+    )
     asyncio.run(adl_controller.main())

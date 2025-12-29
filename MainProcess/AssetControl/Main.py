@@ -13,7 +13,7 @@ from Core.Define import convert_exchange_to_name
 from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file, exchange1, exchange2
 from Core.Logger import log_info, LogService
 from MainProcess.AssetControl.BalanceConfig import max_diff_rate
-from Core.Tracker.Tracker import AccountBalance
+
 
 start_time = time.time()
 
@@ -89,21 +89,10 @@ class AssetProcess:
             else:
                 return False
 
-    def _bitget_account_balance(self):
-        resp = self.bitget_tracker.get_future_account_balance()
-        usdt = resp["balances"].get("USDT", {"total": 0.0})
-        total = float(usdt.get("total", 0.0))
-        return AccountBalance(total, total, total, usdt.get("available", 0.0), 0.0)
-
-    def _gate_account_balance(self):
-        resp = self.gate_tracker.get_future_account_balance()
-        usdt = resp["balances"].get("USDT", {"total": 0.0})
-        total = float(usdt.get("total", 0.0))
-        return AccountBalance(total, total, total, usdt.get("available", 0.0), 0.0)
 
     def tick(self):
-        bitget_asset_info = self._bitget_account_balance()
-        gate_asset_info = self._gate_account_balance()
+        bitget_asset_info =  self.bitget_tracker.get_future_account_balance()
+        gate_asset_info = self.gate_tracker.get_future_account_balance()
 
         total = bitget_asset_info.total_margin_balance + gate_asset_info.total_margin_balance
         min_balance = total / 2 - total * self.MIN_ASSET_DIFF

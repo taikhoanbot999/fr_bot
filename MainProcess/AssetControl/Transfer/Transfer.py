@@ -3,18 +3,42 @@ import sys
 import time
 import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
-from Core.Exchange.Exchange import ExchangeManager
+import ccxt
 from TransferConfig import TransferConfig
 from Core.Define import EXCHANGE
 from Define import transfer_done_file, exchange2, exchange1, transfer_status_json_file
 from Core.Tool import try_this
 from Core.Logger import log_info, LogService, LogTarget
+import Config
 
 
-exchange_manager = ExchangeManager(exchange1, exchange2)
-bitget = exchange_manager.bitget_exchange
-binance = exchange_manager.binance_exchange
-gate = exchange_manager.gate_exchange
+# Khởi tạo trực tiếp các instance ccxt thay vì dùng ExchangeManager
+creds = Config.get_credentials(exchange1, exchange2)
+
+bitget_creds = creds['bitget']
+binance_creds = creds['binance']
+gate_creds = creds['gate']
+
+bitget = ccxt.bitget({
+    'apiKey': bitget_creds['api_key'],
+    'secret': bitget_creds['api_secret'],
+    'password': bitget_creds['password'],
+    'enableRateLimit': True,
+})
+bitget.options['defaultType'] = 'swap'
+
+binance = ccxt.binanceusdm({
+    'apiKey': binance_creds['api_key'],
+    'secret': binance_creds['api_secret'],
+    'enableRateLimit': True,
+})
+
+gate = ccxt.gateio({
+    'apiKey': gate_creds['api_key'],
+    'secret': gate_creds['api_secret'],
+    'enableRateLimit': True,
+})
+gate.options['defaultType'] = 'swap'
 
 start_time = time.time()
 
