@@ -19,12 +19,27 @@ print(f"argv: {sys.argv}")
 
 _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 _default_root = _REPO_ROOT if os.name == "nt" else "/home/ubuntu/fr_bot"
-root_path = os.environ.get("FR_BOT_ROOT", _default_root)
-root_path = os.path.abspath(root_path)
-if not root_path.endswith(os.sep):
-    root_path += os.sep
+_deploy_root = os.path.abspath(os.environ.get("FR_BOT_ROOT", _default_root))
+root_path = _deploy_root + os.sep
 
-setting_file = os.path.join(root_path, "code/_settings", 'config.txt')
+
+def _resolve_code_dir(deploy_root: str) -> str:
+    """Linux/Docker: deploy_root/code/...  |  Windows dev (flat clone): deploy_root/_settings/..."""
+    nested_cfg = os.path.join(deploy_root, "code", "_settings", "config.txt")
+    flat_cfg = os.path.join(deploy_root, "_settings", "config.txt")
+    if os.path.isfile(nested_cfg):
+        return os.path.join(deploy_root, "code")
+    if os.path.isfile(flat_cfg):
+        return deploy_root
+    raise FileNotFoundError(
+        f"Settings not found. Expected {nested_cfg} or {flat_cfg}"
+    )
+
+
+code_dir = _resolve_code_dir(_deploy_root)
+settings_dir = os.path.join(code_dir, "_settings")
+
+setting_file = os.path.join(settings_dir, "config.txt")
 if not os.path.exists(setting_file):
     raise FileNotFoundError(f"Setting file {setting_file} does not exist.")
 
@@ -53,12 +68,12 @@ transfer_done_file = os.path.join(log_path, "transfer_done.txt")
 # File JSON trạng thái transfer mới (atomic + dễ parse giữa container)
 transfer_status_json_file = os.path.join(log_path, "transfer_status.json")
 
-transfer_info_path = os.path.join(root_path, "code/_settings", ini_path, "transfer.json")
-balance_info_path = os.path.join(root_path, "code/_settings", ini_path,  "balance.json")
-tp_sl_info_path = os.path.join(root_path, "code/_settings", ini_path, "tp_sl.json")
-discord_config_path = os.path.join(root_path, "code/_settings", ini_path, "config.json")
+transfer_info_path = os.path.join(settings_dir, ini_path, "transfer.json")
+balance_info_path = os.path.join(settings_dir, ini_path, "balance.json")
+tp_sl_info_path = os.path.join(settings_dir, ini_path, "tp_sl.json")
+discord_config_path = os.path.join(settings_dir, ini_path, "config.json")
 
-server_config_path = os.path.join(root_path, "code/_settings", "server.json")
+server_config_path = os.path.join(settings_dir, "server.json")
 
 shared_log_path = os.path.join(log_path, "shared.log")
 discord_simple_log_path = os.path.join(log_path, "discord_simple.log")

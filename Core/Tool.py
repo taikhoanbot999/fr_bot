@@ -17,12 +17,12 @@ except Exception:
 if discord_config_path is None:
     # Fallback: đoán root đường dẫn để lấy file cấu hình chung (ít khắt khe hơn)
     if os.name == "nt":
-        root_guess = "C:\\job\\dim\\fr_bot"
+        root_guess = os.path.dirname(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     else:
         root_guess = "/app" if os.path.exists("/app/code/_settings/config.txt") else "/home/ubuntu/fr_bot"
-    # Thử các vị trí mặc định
     candidate_paths = [
-        os.path.join(root_guess, "code/_settings", "config.json"),
+        os.path.join(root_guess, "code", "_settings", "config.json"),
+        os.path.join(root_guess, "_settings", "config.json"),
     ]
     for p in candidate_paths:
         if os.path.exists(p):

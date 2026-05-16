@@ -3,7 +3,7 @@ import os
 import uuid
 from enum import Enum
 import subprocess
-from Define import server_config_path, root_path
+from Define import server_config_path, root_path, settings_dir
 from pydantic import BaseModel, Field
 
 
@@ -42,7 +42,7 @@ def _host_path(*parts):
 
 
 HOST_LOGS = _host_path("logs")
-HOST_SETTINGS = _host_path("code", "_settings")
+HOST_SETTINGS = os.path.abspath(settings_dir).replace("\\", "/")
 IN_CONTAINER_LOGS_NEW = "/home/ubuntu/fr_bot/logs"
 IN_CONTAINER_LOGS_OLD = "/app/logs"
 IN_CONTAINER_SETTINGS_NEW = "/home/ubuntu/fr_bot/code/_settings"

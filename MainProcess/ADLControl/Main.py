@@ -7,7 +7,7 @@ import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from Core.Exchange.Exchange import ExchangeManager
 from Core.Tool import try_this
-from Define import exchange1, exchange2, root_path
+from Define import exchange1, exchange2, settings_dir
 from MainProcess.ADLControl.Log import adl_log
 from MainProcess.ADLControl.Order import close_position_gate, close_position_bitget, fetch_position_bitget, \
     fetch_position_gate
@@ -134,7 +134,7 @@ class ADLController:
         open_symbols = [p['symbol'] for p in positions if float(p.get('contracts', 0)) > 0]
         ignore_symbols = ["SXP", "OKB", "BGB", "EDEN", "ETH"]
         open_symbols = [s for s in open_symbols if not any(ig in s for ig in ignore_symbols)]
-        with open(f"{root_path}/code/_settings/symbols.txt", 'w', encoding='utf-8') as file:
+        with open(os.path.join(settings_dir, "symbols.txt"), 'w', encoding='utf-8') as file:
             for sym in open_symbols:
                 file.write(f"{sym}\n")
         print(f"Start Adl with symbols: {open_symbols}")

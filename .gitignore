@@ -53,3 +53,6 @@ web-ui/.next/
 # .git/
 
 _settings
+
+# Windows dev junction to repo root (causes code/code/... loop) — not needed after Define path fix
+code/

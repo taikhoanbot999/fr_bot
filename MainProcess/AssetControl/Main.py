@@ -10,7 +10,7 @@ from fr_ccxt import CCXTWrapper
 from Core.secret import get_secret
 from Core.Tool import step, clear_console
 from Core.Define import convert_exchange_to_name
-from Define import transfer_done_file, SERVICE_NAME, root_path, transfer_status_json_file, exchange1, exchange2
+from Define import transfer_done_file, SERVICE_NAME, code_dir, transfer_status_json_file, exchange1, exchange2
 from Core.Logger import log_info, LogService
 from MainProcess.AssetControl.BalanceConfig import max_diff_rate
 from Core.Tracker.Tracker import AccountBalance
@@ -62,7 +62,7 @@ class AssetProcess:
             asset_control_log(f'Cannot write transfer_status.json: {e}')
 
         asset_control_log(f"Transfer {amount} USDT from {from_exchange} to {to_exchange}")
-        script_path = f"{root_path}/code/MainProcess/AssetControl/Transfer/Transfer.py"
+        script_path = os.path.join(code_dir, "MainProcess", "AssetControl", "Transfer", "Transfer.py")
         venv_python = sys.executable
         self.process = subprocess.Popen(
             [venv_python, script_path, from_exchange, to_exchange, str(amount)],
