@@ -1,0 +1,10 @@
+{
+  "TP_SL": {
+    "tp_rate": 0.08,
+    "sl_rate": 0.08,
+    "interval": 180
+  },
+  "symbols": [
+    "BTC"
+  ]
+}

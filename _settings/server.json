@@ -1,0 +1,6 @@
+{
+  "microservices": [
+    { "name": "ADLControl", "host": "localhost" },
+    { "name": "AssetControl", "host": "localhost" }
+  ]
+}

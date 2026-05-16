@@ -1,0 +1,12 @@
+{
+  "bitget": {
+      "chain": "APT",
+      "network": "APT",
+      "address": "0xe7d2889c3f26baff0d1307c3ed8ba7109bfc05e9a6dac6e96604905afd51264c"
+  },
+  "gate": {
+    "chain": "Aptos",
+    "network": "APT",
+    "address": "0x957a02590c187a4a93a965e6ebfe3ea4b3cc33cf6ffb72698a113785579a1cd2"
+  }
+}

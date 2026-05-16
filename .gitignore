@@ -52,7 +52,5 @@ web-ui/.next/
 # Git metadata should NOT be ignored (remove `.git/` if present)
 # .git/
 
-_settings
-
 # Windows dev junction to repo root (causes code/code/... loop) — not needed after Define path fix
 code/
