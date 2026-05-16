@@ -1,8 +1,9 @@
 import json
+import os
 import uuid
 from enum import Enum
 import subprocess
-from Define import server_config_path
+from Define import server_config_path, root_path
 from pydantic import BaseModel, Field
 
 
@@ -35,9 +36,13 @@ class MicroserviceController:
         raise NotImplementedError("gRPC microservice is no longer supported.")
 
 
-# Common constants for mounts
-HOST_LOGS = "/home/ubuntu/fr_bot/logs"
-HOST_SETTINGS = "/home/ubuntu/fr_bot/code/_settings"
+# Common constants for mounts (host paths; Docker on Windows accepts forward slashes)
+def _host_path(*parts):
+    return os.path.join(root_path, *parts).replace("\\", "/")
+
+
+HOST_LOGS = _host_path("logs")
+HOST_SETTINGS = _host_path("code", "_settings")
 IN_CONTAINER_LOGS_NEW = "/home/ubuntu/fr_bot/logs"
 IN_CONTAINER_LOGS_OLD = "/app/logs"
 IN_CONTAINER_SETTINGS_NEW = "/home/ubuntu/fr_bot/code/_settings"

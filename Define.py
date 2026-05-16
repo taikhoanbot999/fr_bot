@@ -16,10 +16,13 @@ exchange1 = NULL
 exchange2 = NULL
 
 print(f"argv: {sys.argv}")
-if os.name == "nt":
-    root_path = "C:\\job\\dim\\fr_bot\\"
-else:
-     root_path = "/home/ubuntu/fr_bot"
+
+_REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+_default_root = _REPO_ROOT if os.name == "nt" else "/home/ubuntu/fr_bot"
+root_path = os.environ.get("FR_BOT_ROOT", _default_root)
+root_path = os.path.abspath(root_path)
+if not root_path.endswith(os.sep):
+    root_path += os.sep
 
 setting_file = os.path.join(root_path, "code/_settings", 'config.txt')
 if not os.path.exists(setting_file):

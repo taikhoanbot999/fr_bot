@@ -9,6 +9,7 @@ from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware
 
 from Server.ServiceManager.MicroserviceManager import Microservice
+from Server.AppCore import AppCore
 
 app = FastAPI()
 
